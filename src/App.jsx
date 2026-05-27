@@ -260,6 +260,14 @@ export default function JobAgent() {
       await new Promise(r => setTimeout(r, 600));
       const gapAdvice = await callClaude(`Based on these skill gaps:\n${matchData.gaps.join("\n")}\n\nGive 4 specific, actionable tips the candidate can use to address these gaps quickly. Be direct and practical. Format as a numbered list.`);
       setCompletedSteps(s => [...s, "gaps"]);
+      setCurrentStep(7);
+
+      await new Promise(r => setTimeout(r, 600));
+      const interviewRaw = await callClaude(`Based on this job posting and candidate resume, generate 6 likely interview questions with brief suggested answers. Format as a JSON array of objects with fields: "question" and "answer". Return ONLY the JSON array, no markdown.\n\nJob posting:\n${jobText}\n\nResume:\n${RESUME}`);
+      let interviewQs = [];
+      try { interviewQs = JSON.parse(interviewRaw.replace(/```json|```/g, "").trim()); }
+      catch { interviewQs = []; }
+      setCompletedSteps(s => [...s, "interview"]);
       setCurrentStep(-1);
 
       const titleRaw = await callClaude(`What is the job title and company name from this posting? Reply with ONLY: "Job Title at Company Name", nothing else.\n\n${jobText}`);
