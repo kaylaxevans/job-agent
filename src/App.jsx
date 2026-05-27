@@ -5,8 +5,8 @@ Kayla.c.evans@outlook.com | (760) 908 8347 | San Diego, CA
 
 EDUCATION
 UC San Diego, School of Global Policy and Strategy
-MA in International Affairs, Specialty in International Management (GPA: 3.5) — June 2026
-BA in International Business — June 2025
+MA in International Affairs, Specialty in International Management (GPA: 3.5) - June 2026
+BA in International Business - June 2025
 Relevant Coursework: International Business, Global Business Strategy, International Economics, Quantitative Methods I-II, Strategy & Negotiation, Product Marketing & Management
 
 EXPERIENCE
@@ -59,31 +59,50 @@ const TABS = [
 ];
 
 const STATUS_COLORS = {
-  "Not Applied":  "#555",
-  "Applied":      "#5a9adb",
-  "Interviewing": "#f0d080",
-  "Offer":        "#5adb8a",
-  "Rejected":     "#db5a5a",
+  "Not Applied":  { text: "#888", bg: "#f5f5f5", border: "#ddd" },
+  "Applied":      { text: "#2563eb", bg: "#eff6ff", border: "#bfdbfe" },
+  "Interviewing": { text: "#d97706", bg: "#fffbeb", border: "#fde68a" },
+  "Offer":        { text: "#16a34a", bg: "#f0fdf4", border: "#bbf7d0" },
+  "Rejected":     { text: "#dc2626", bg: "#fef2f2", border: "#fecaca" },
 };
 
+// Render markdown bold (**text**) as <strong>
+function RenderMarkdown({ text, style }) {
+  if (!text) return null;
+  const parts = text.split(/(\*\*[^*]+\*\*|##[^\n]+)/g);
+  return (
+    <p style={{ margin: 0, ...style }}>
+      {parts.map((part, i) => {
+        if (part.startsWith("**") && part.endsWith("**")) {
+          return <strong key={i}>{part.slice(2, -2)}</strong>;
+        }
+        if (part.startsWith("## ")) {
+          return <strong key={i} style={{ display: "block", marginTop: "12px" }}>{part.slice(3)}</strong>;
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </p>
+  );
+}
+
 export default function JobAgent() {
-  const [jobText, setJobText]                     = useState("");
-  const [running, setRunning]                     = useState(false);
-  const [currentStep, setCurrentStep]             = useState(-1);
-  const [completedSteps, setCompletedSteps]       = useState([]);
-  const [results, setResults]                     = useState(null);
-  const [activeTab, setActiveTab]                 = useState("cover");
-  const [error, setError]                         = useState(null);
-  const [dots, setDots]                           = useState("");
-  const [view, setView]                           = useState("agent");
-  const [applications, setApplications]           = useState([]);
-  const [copiedMsg, setCopiedMsg]                 = useState("");
+  const [jobText, setJobText]                       = useState("");
+  const [running, setRunning]                       = useState(false);
+  const [currentStep, setCurrentStep]               = useState(-1);
+  const [completedSteps, setCompletedSteps]         = useState([]);
+  const [results, setResults]                       = useState(null);
+  const [activeTab, setActiveTab]                   = useState("cover");
+  const [error, setError]                           = useState(null);
+  const [dots, setDots]                             = useState("");
+  const [view, setView]                             = useState("agent");
+  const [applications, setApplications]             = useState([]);
+  const [copiedMsg, setCopiedMsg]                   = useState("");
   const [selectedNetworkIdx, setSelectedNetworkIdx] = useState(0);
-  const [resumeText, setResumeText]               = useState(DEFAULT_RESUME);
-  const [resumeName, setResumeName]               = useState("Kayla C. Evans (default)");
-  const [resumeLoading, setResumeLoading]         = useState(false);
-  const [dragOver, setDragOver]                   = useState(false);
-  const fileInputRef                              = useRef(null);
+  const [resumeText, setResumeText]                 = useState(DEFAULT_RESUME);
+  const [resumeName, setResumeName]                 = useState("Kayla C. Evans (default)");
+  const [resumeLoading, setResumeLoading]           = useState(false);
+  const [dragOver, setDragOver]                     = useState(false);
+  const fileInputRef                                = useRef(null);
 
   useEffect(() => {
     try {
@@ -106,7 +125,18 @@ export default function JobAgent() {
     return () => clearInterval(iv);
   }, [running]);
 
-  // ── PDF text extraction ──────────────────────────────────────────────
+  useEffect(() => {
+    if (!window.pdfjsLib) {
+      const script = document.createElement("script");
+      script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+      script.onload = () => {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+          "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      };
+      document.head.appendChild(script);
+    }
+  }, []);
+
   const extractTextFromPDF = async (file) => {
     const arrayBuffer = await file.arrayBuffer();
     const loadingTask = window.pdfjsLib.getDocument({ data: arrayBuffer });
@@ -115,8 +145,7 @@ export default function JobAgent() {
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const content = await page.getTextContent();
-      const pageText = content.items.map(item => item.str).join(" ");
-      fullText += pageText + "\n";
+      fullText += content.items.map(item => item.str).join(" ") + "\n";
     }
     return fullText.trim();
   };
@@ -150,14 +179,6 @@ export default function JobAgent() {
     }
   };
 
-  const handleFileDrop = (e) => {
-    e.preventDefault();
-    setDragOver(false);
-    const file = e.dataTransfer.files[0];
-    if (file) handleResumeFile(file);
-  };
-
-  // ── Claude API call ──────────────────────────────────────────────────
   const callClaude = async (prompt) => {
     const res = await fetch("/api/chat", {
       method: "POST",
@@ -179,7 +200,10 @@ export default function JobAgent() {
     setTimeout(() => setCopiedMsg(""), 2000);
   };
 
-  // ── Main agent run ───────────────────────────────────────────────────
+  const getFormattedDate = () => {
+    return new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  };
+
   const runAgent = async () => {
     if (!jobText.trim()) return;
     setRunning(true);
@@ -189,7 +213,6 @@ export default function JobAgent() {
     setError(null);
     setActiveTab("cover");
     setSelectedNetworkIdx(0);
-
     const RESUME = resumeText;
 
     try {
@@ -198,9 +221,7 @@ export default function JobAgent() {
       setCurrentStep(1);
 
       await new Promise(r => setTimeout(r, 600));
-      const reqRaw = await callClaude(
-        `Extract the top 6-8 key requirements from this job posting as a JSON array of short strings. Return ONLY the JSON array, no markdown:\n\n${jobText}`
-      );
+      const reqRaw = await callClaude(`Extract the top 6-8 key requirements from this job posting as a JSON array of short strings. Return ONLY the JSON array, no markdown:\n\n${jobText}`);
       let requirements = [];
       try { requirements = JSON.parse(reqRaw.replace(/```json|```/g, "").trim()); }
       catch { requirements = reqRaw.split("\n").filter(l => l.trim()).slice(0, 8); }
@@ -208,9 +229,7 @@ export default function JobAgent() {
       setCurrentStep(2);
 
       await new Promise(r => setTimeout(r, 600));
-      const matchRaw = await callClaude(
-        `Given this resume:\n${RESUME}\n\nAnd these job requirements:\n${requirements.join("\n")}\n\nReturn a JSON object with two arrays: "matches" (requirements clearly met) and "gaps" (requirements missing or weak). Return ONLY the JSON object, no markdown.`
-      );
+      const matchRaw = await callClaude(`Given this resume:\n${RESUME}\n\nAnd these job requirements:\n${requirements.join("\n")}\n\nReturn a JSON object with two arrays: "matches" (requirements clearly met) and "gaps" (requirements missing or weak). Return ONLY the JSON object, no markdown.`);
       let matchData = { matches: [], gaps: [] };
       try { matchData = JSON.parse(matchRaw.replace(/```json|```/g, "").trim()); }
       catch { matchData = { matches: requirements.slice(0, 4), gaps: requirements.slice(4) }; }
@@ -218,23 +237,17 @@ export default function JobAgent() {
       setCurrentStep(3);
 
       await new Promise(r => setTimeout(r, 600));
-      const coverLetter = await callClaude(
-        `Write a professional, tailored cover letter for the candidate applying to this job:\n\n${jobText}\n\nTheir resume:\n${RESUME}\n\nMake it compelling, specific, and under 300 words. No generic filler. Start with a strong opening line. Do not include a header/address block.`
-      );
+      const coverBody = await callClaude(`Write a professional, tailored cover letter body for the candidate applying to this job:\n\n${jobText}\n\nTheir resume:\n${RESUME}\n\nIMPORTANT: Return ONLY the body paragraphs. Do NOT include a date, salutation, or closing signature — those will be added automatically. Make it compelling and under 250 words. No generic filler.`);
       setCompletedSteps(s => [...s, "cover"]);
       setCurrentStep(4);
 
       await new Promise(r => setTimeout(r, 600));
-      const resumeRewrite = await callClaude(
-        `Rewrite the candidate's resume bullet points to better match this job posting. Make bullets stronger, more quantified where possible, and keyword-optimized. Return as plain text with section headers and bullet points using -. Keep to the most relevant 3 experience sections.\n\nJob posting:\n${jobText}\n\nOriginal resume:\n${RESUME}`
-      );
+      const resumeRewrite = await callClaude(`Rewrite the candidate's resume bullet points to better match this job posting. Make bullets stronger, more quantified where possible, and keyword-optimized. Return as plain text with section headers and bullet points using -. Keep to the most relevant 3 experience sections.\n\nJob posting:\n${jobText}\n\nOriginal resume:\n${RESUME}`);
       setCompletedSteps(s => [...s, "rewrite"]);
       setCurrentStep(5);
 
       await new Promise(r => setTimeout(r, 600));
-      const networkRaw = await callClaude(
-        `Based on this job posting, suggest 4 types of people at this company to connect with on LinkedIn. For each: a job title to search for, why they're worth connecting with, and a short personalized LinkedIn message (under 80 words). Return as a JSON array with fields: "title", "reason", "message". Return ONLY the JSON array, no markdown.\n\nJob posting:\n${jobText}\n\nCandidate resume:\n${RESUME}`
-      );
+      const networkRaw = await callClaude(`Based on this job posting, suggest 4 types of people at this company to connect with on LinkedIn. For each: a job title to search for, why they're worth connecting with, and a short personalized LinkedIn message (under 80 words). Return as a JSON array with fields: "title", "reason", "message". Return ONLY the JSON array, no markdown.\n\nJob posting:\n${jobText}\n\nCandidate resume:\n${RESUME}`);
       let networkTargets = [];
       try { networkTargets = JSON.parse(networkRaw.replace(/```json|```/g, "").trim()); }
       catch { networkTargets = [{ title: "Hiring Manager", reason: "Direct decision maker for this role", message: "Hi, I recently applied for this role and would love to connect and learn more about the team." }]; }
@@ -242,26 +255,27 @@ export default function JobAgent() {
       setCurrentStep(6);
 
       await new Promise(r => setTimeout(r, 600));
-      const gapAdvice = await callClaude(
-        `Based on these skill gaps for a job application:\n${matchData.gaps.join("\n")}\n\nGive 4 specific, actionable tips the candidate can use to address these gaps quickly. Be direct and practical. Format as a numbered list.`
-      );
+      const gapAdvice = await callClaude(`Based on these skill gaps:\n${matchData.gaps.join("\n")}\n\nGive 4 specific, actionable tips the candidate can use to address these gaps quickly. Be direct and practical. Format as a numbered list.`);
       setCompletedSteps(s => [...s, "gaps"]);
       setCurrentStep(-1);
 
-      const titleRaw = await callClaude(
-        `What is the job title and company name from this posting? Reply with ONLY: "Job Title at Company Name", nothing else.\n\n${jobText}`
-      );
+      const titleRaw = await callClaude(`What is the job title and company name from this posting? Reply with ONLY: "Job Title at Company Name", nothing else.\n\n${jobText}`);
+
+      // Extract candidate name from resume
+      const nameRaw = await callClaude(`What is the full name of the candidate from this resume? Reply with ONLY their full name, nothing else.\n\n${RESUME}`);
 
       const newResult = {
         title: titleRaw.trim(),
+        candidateName: nameRaw.trim(),
         requirements,
         matches: matchData.matches || [],
         gaps: matchData.gaps || [],
-        coverLetter,
+        coverBody,
         resumeRewrite,
         networkTargets,
         gapAdvice,
         date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+        formattedDate: getFormattedDate(),
         status: "Not Applied",
         id: Date.now(),
       };
@@ -276,52 +290,36 @@ export default function JobAgent() {
     }
   };
 
-  const updateStatus = (id, status) => {
-    saveApps(prev => prev.map(a => a.id === id ? { ...a, status } : a));
+  const updateStatus = (id, status) => saveApps(prev => prev.map(a => a.id === id ? { ...a, status } : a));
+  const deleteApp = (id) => saveApps(prev => prev.filter(a => a.id !== id));
+
+  const getFullCoverLetter = (result) => {
+    return `${result.formattedDate}\n\nDear Hiring Manager,\n\n${result.coverBody}\n\nSincerely,\n${result.candidateName}`;
   };
 
-  const deleteApp = (id) => {
-    saveApps(prev => prev.filter(a => a.id !== id));
-  };
-
-  // ── Styles ───────────────────────────────────────────────────────────
+  // ── Styles (light mode) ──────────────────────────────────────────────
   const s = {
-    page: { minHeight: "100vh", background: "#080810", fontFamily: "'DM Mono','Courier New',monospace", color: "#e8e4d9" },
-    header: { borderBottom: "1px solid #1a1a2a", padding: "22px 40px", display: "flex", alignItems: "center", background: "#0c0c18", justifyContent: "space-between" },
-    logo: { fontFamily: "'Playfair Display',serif", fontSize: "26px", fontWeight: 900, color: "#f0d080", margin: 0, letterSpacing: "-0.5px" },
-    nav: { display: "flex", gap: "4px" },
-    navBtn: (active) => ({ background: active ? "#1a1a2e" : "none", border: active ? "1px solid #2a2a4a" : "1px solid transparent", borderRadius: "6px", padding: "7px 16px", color: active ? "#f0d080" : "#555", fontFamily: "'DM Mono',monospace", fontSize: "11px", letterSpacing: "1.5px", textTransform: "uppercase", cursor: "pointer", transition: "all 0.2s" }),
-    container: { maxWidth: "980px", margin: "0 auto", padding: "36px 24px" },
-    label: { display: "block", fontSize: "10px", letterSpacing: "2px", textTransform: "uppercase", color: "#555", marginBottom: "10px" },
-    card: { background: "#0c0c18", border: "1px solid #1a1a2a", borderRadius: "10px", padding: "24px" },
-    tabBar: { display: "flex", borderBottom: "1px solid #1a1a2a", marginBottom: "24px", gap: 0, overflowX: "auto" },
-    tabBtn: (active) => ({ background: "none", border: "none", borderBottom: active ? "2px solid #f0d080" : "2px solid transparent", padding: "10px 18px", color: active ? "#f0d080" : "#555", fontFamily: "'DM Mono',monospace", fontSize: "11px", letterSpacing: "1.5px", textTransform: "uppercase", cursor: "pointer", whiteSpace: "nowrap", marginBottom: "-1px", transition: "all 0.2s" }),
-    copyBtn: { background: "none", border: "1px solid #2a2a3e", borderRadius: "6px", padding: "7px 14px", color: "#8080aa", fontFamily: "'DM Mono',monospace", fontSize: "10px", cursor: "pointer", letterSpacing: "1px", marginTop: "16px", transition: "all 0.2s" },
-    pill: (color) => ({ display: "inline-block", padding: "3px 10px", borderRadius: "20px", fontSize: "10px", letterSpacing: "1px", border: `1px solid ${color}`, color: color, background: color + "18" }),
+    page:      { minHeight: "100vh", background: "#f8f7f4", fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", color: "#1a1a2e", width: "100%" },
+    header:    { borderBottom: "1px solid #e5e2db", padding: "18px 48px", display: "flex", alignItems: "center", background: "#ffffff", justifyContent: "space-between", width: "100%", boxSizing: "border-box" },
+    logo:      { fontFamily: "'Playfair Display', serif", fontSize: "24px", fontWeight: 900, color: "#1a1a2e", margin: 0 },
+    nav:       { display: "flex", gap: "4px" },
+    navBtn:    (active) => ({ background: active ? "#1a1a2e" : "none", border: active ? "1px solid #1a1a2e" : "1px solid #ddd", borderRadius: "6px", padding: "7px 16px", color: active ? "#ffffff" : "#888", fontFamily: "inherit", fontSize: "12px", letterSpacing: "1px", textTransform: "uppercase", cursor: "pointer", transition: "all 0.2s" }),
+    container: { maxWidth: "900px", margin: "0 auto", padding: "40px 24px" },
+    label:     { display: "block", fontSize: "11px", letterSpacing: "2px", textTransform: "uppercase", color: "#aaa", marginBottom: "10px" },
+    card:      { background: "#ffffff", border: "1px solid #e5e2db", borderRadius: "10px", padding: "28px", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" },
+    tabBar:    { display: "flex", borderBottom: "1px solid #e5e2db", marginBottom: "24px", gap: 0, overflowX: "auto" },
+    tabBtn:    (active) => ({ background: "none", border: "none", borderBottom: active ? "2px solid #1a1a2e" : "2px solid transparent", padding: "10px 18px", color: active ? "#1a1a2e" : "#aaa", fontFamily: "inherit", fontSize: "12px", letterSpacing: "1px", textTransform: "uppercase", cursor: "pointer", whiteSpace: "nowrap", marginBottom: "-1px", transition: "all 0.2s" }),
+    copyBtn:   { background: "none", border: "1px solid #ddd", borderRadius: "6px", padding: "7px 14px", color: "#888", fontFamily: "inherit", fontSize: "11px", cursor: "pointer", letterSpacing: "1px", marginTop: "16px", transition: "all 0.2s" },
+    pill:      (sc) => ({ display: "inline-block", padding: "3px 10px", borderRadius: "20px", fontSize: "11px", letterSpacing: "0.5px", border: `1px solid ${sc.border}`, color: sc.text, background: sc.bg }),
   };
-
-  // ── PDF.js loader ────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!window.pdfjsLib) {
-      const script = document.createElement("script");
-      script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-      script.onload = () => {
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-          "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-      };
-      document.head.appendChild(script);
-    }
-  }, []);
 
   // ── TRACKER VIEW ─────────────────────────────────────────────────────
   if (view === "tracker") {
     return (
       <div style={s.page}>
         <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Playfair+Display:wght@700;900&display=swap');
-          * { box-sizing: border-box; }
-          button { transition: all 0.2s; } button:hover { opacity: 0.85; }
-          select { appearance: none; }
+          @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@700;900&display=swap');
+          * { box-sizing: border-box; } button { transition: all 0.2s; } button:hover { opacity: 0.8; }
           .fade-in { animation: fadeIn 0.3s ease forwards; }
           @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
         `}</style>
@@ -334,39 +332,38 @@ export default function JobAgent() {
         </div>
         <div style={s.container}>
           <div style={{ marginBottom: "28px" }}>
-            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "22px", color: "#f0d080", fontWeight: 700, marginBottom: "6px" }}>Application Tracker</div>
-            <div style={{ fontSize: "12px", color: "#555" }}>{applications.length} application{applications.length !== 1 ? "s" : ""} saved</div>
+            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "24px", color: "#1a1a2e", fontWeight: 700, marginBottom: "6px" }}>Application Tracker</div>
+            <div style={{ fontSize: "13px", color: "#aaa" }}>{applications.length} application{applications.length !== 1 ? "s" : ""} saved</div>
           </div>
           {applications.length === 0 ? (
             <div style={{ ...s.card, textAlign: "center", padding: "60px 24px" }}>
               <div style={{ fontSize: "32px", marginBottom: "12px" }}>📋</div>
-              <div style={{ color: "#555", fontSize: "13px" }}>No applications yet. Run the agent on a job posting to get started.</div>
+              <div style={{ color: "#aaa", fontSize: "13px" }}>No applications yet. Run the agent on a job posting to get started.</div>
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
               {applications.map((app) => (
-                <div key={app.id} className="fade-in" style={{ ...s.card, display: "flex", alignItems: "center", gap: "20px", flexWrap: "wrap" }}>
+                <div key={app.id} className="fade-in" style={{ ...s.card, display: "flex", alignItems: "center", gap: "20px", flexWrap: "wrap", padding: "18px 24px" }}>
                   <div style={{ flex: 1, minWidth: "200px" }}>
-                    <div style={{ fontSize: "14px", color: "#e8e4d9", marginBottom: "4px", fontFamily: "'Playfair Display',serif" }}>{app.title}</div>
-                    <div style={{ fontSize: "11px", color: "#444" }}>{app.date}</div>
+                    <div style={{ fontSize: "15px", color: "#1a1a2e", marginBottom: "3px", fontWeight: 600 }}>{app.title}</div>
+                    <div style={{ fontSize: "12px", color: "#aaa" }}>{app.date}</div>
                   </div>
                   <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                    <div style={{ fontSize: "11px", color: "#555", letterSpacing: "1px" }}>STATUS</div>
-                    <select value={app.status} onChange={e => updateStatus(app.id, e.target.value)} style={{ background: "#12121f", border: "1px solid #2a2a3e", borderRadius: "6px", padding: "6px 12px", color: STATUS_COLORS[app.status], fontFamily: "'DM Mono',monospace", fontSize: "11px", cursor: "pointer" }}>
+                    <select value={app.status} onChange={e => updateStatus(app.id, e.target.value)} style={{ background: "#fff", border: "1px solid #ddd", borderRadius: "6px", padding: "6px 12px", color: STATUS_COLORS[app.status]?.text || "#888", fontFamily: "inherit", fontSize: "12px", cursor: "pointer" }}>
                       {Object.keys(STATUS_COLORS).map(st => <option key={st} value={st}>{st}</option>)}
                     </select>
                   </div>
                   <div style={{ display: "flex", gap: "8px" }}>
-                    <button onClick={() => { setResults(app); setView("agent"); setActiveTab("cover"); }} style={{ background: "none", border: "1px solid #2a2a3e", borderRadius: "6px", padding: "6px 12px", color: "#8080aa", fontFamily: "'DM Mono',monospace", fontSize: "10px", cursor: "pointer", letterSpacing: "1px" }}>View</button>
-                    <button onClick={() => deleteApp(app.id)} style={{ background: "none", border: "1px solid #3a1f1f", borderRadius: "6px", padding: "6px 12px", color: "#884444", fontFamily: "'DM Mono',monospace", fontSize: "10px", cursor: "pointer", letterSpacing: "1px" }}>Delete</button>
+                    <button onClick={() => { setResults(app); setView("agent"); setActiveTab("cover"); }} style={{ background: "none", border: "1px solid #ddd", borderRadius: "6px", padding: "6px 14px", color: "#888", fontFamily: "inherit", fontSize: "11px", cursor: "pointer" }}>View</button>
+                    <button onClick={() => deleteApp(app.id)} style={{ background: "none", border: "1px solid #fecaca", borderRadius: "6px", padding: "6px 14px", color: "#dc2626", fontFamily: "inherit", fontSize: "11px", cursor: "pointer" }}>Delete</button>
                   </div>
                 </div>
               ))}
             </div>
           )}
           {applications.length > 0 && (
-            <div style={{ marginTop: "28px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
-              {Object.entries(STATUS_COLORS).map(([label, color]) => <span key={label} style={s.pill(color)}>{label}</span>)}
+            <div style={{ marginTop: "24px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              {Object.entries(STATUS_COLORS).map(([label, sc]) => <span key={label} style={s.pill(sc)}>{label}</span>)}
             </div>
           )}
         </div>
@@ -378,68 +375,68 @@ export default function JobAgent() {
   return (
     <div style={s.page}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Playfair+Display:wght@700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@700;900&display=swap');
         * { box-sizing: border-box; }
-        ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: #080810; } ::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 2px; }
-        button { transition: all 0.2s; }
-        textarea:focus { outline: none; border-color: #f0d080 !important; }
-        .run-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 28px rgba(240,208,128,0.2); }
+        body { margin: 0; background: #f8f7f4; }
+        textarea:focus { outline: none; border-color: #1a1a2e !important; }
+        .run-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(26,26,46,0.2); }
         .run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
         .fade-in { animation: fadeIn 0.35s ease forwards; }
         @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
         .pulse { animation: pulse 1.4s ease-in-out infinite; }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
         .network-card { cursor: pointer; transition: all 0.2s; }
-        .network-card:hover { border-color: #3a3a5a !important; }
-        .network-card.selected { border-color: #f0d080 !important; background: #14142a !important; }
-        .drop-zone { transition: all 0.2s; }
-        .drop-zone:hover { border-color: #f0d080 !important; }
-        .drop-zone.drag-over { border-color: #f0d080 !important; background: #14142a !important; }
+        .network-card:hover { border-color: #1a1a2e !important; }
+        .network-card.selected { border-color: #1a1a2e !important; background: #f0f0f8 !important; }
+        .drop-zone { transition: all 0.2s; cursor: pointer; }
+        .drop-zone:hover, .drop-zone.drag-over { border-color: #1a1a2e !important; background: #f0f0f8 !important; }
+        button { font-family: inherit; }
+        select { font-family: inherit; }
       `}</style>
 
       <div style={s.header}>
         <div style={{ display: "flex", alignItems: "baseline", gap: "14px" }}>
           <h1 style={s.logo}>JobAgent</h1>
-          <span style={{ fontSize: "10px", color: "#444", letterSpacing: "2px", textTransform: "uppercase" }}>autonomous application assistant</span>
+          <span style={{ fontSize: "11px", color: "#bbb", letterSpacing: "2px", textTransform: "uppercase" }}>autonomous application assistant</span>
         </div>
         <div style={s.nav}>
           <button style={s.navBtn(true)}>Agent</button>
-          <button style={s.navBtn(false)} onClick={() => setView("tracker")}>Tracker {applications.length > 0 && `(${applications.length})`}</button>
+          <button style={s.navBtn(false)} onClick={() => setView("tracker")}>
+            Tracker {applications.length > 0 && `(${applications.length})`}
+          </button>
         </div>
       </div>
 
       <div style={s.container}>
 
-        {/* ── Resume Upload ── */}
-        <div style={{ marginBottom: "28px" }}>
+        {/* Resume Upload */}
+        <div style={{ marginBottom: "24px" }}>
           <label style={s.label}>Your Resume</label>
           <div
             className={`drop-zone${dragOver ? " drag-over" : ""}`}
             onDragOver={e => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
-            onDrop={handleFileDrop}
+            onDrop={e => { e.preventDefault(); setDragOver(false); handleResumeFile(e.dataTransfer.files[0]); }}
             onClick={() => fileInputRef.current?.click()}
-            style={{ background: "#0c0c18", border: "1px dashed #2a2a3e", borderRadius: "8px", padding: "20px 24px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px" }}
+            style={{ background: "#fff", border: "1.5px dashed #ddd", borderRadius: "8px", padding: "18px 22px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px" }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <span style={{ color: resumeName.includes("default") ? "#555" : "#5adb8a", fontSize: "9px" }}>●</span>
+              <span style={{ color: resumeName.includes("default") ? "#ddd" : "#16a34a", fontSize: "18px" }}>📄</span>
               <div>
-                <div style={{ fontSize: "12px", color: resumeName.includes("default") ? "#888" : "#e8e4d9" }}>
+                <div style={{ fontSize: "13px", color: resumeName.includes("default") ? "#aaa" : "#1a1a2e", fontWeight: 500 }}>
                   {resumeLoading ? "Reading resume..." : resumeName}
                 </div>
-                <div style={{ fontSize: "10px", color: "#444", marginTop: "2px" }}>
+                <div style={{ fontSize: "11px", color: "#bbb", marginTop: "2px" }}>
                   {resumeName.includes("default") ? "Click or drag to upload your resume PDF" : "Click to upload a different resume"}
                 </div>
               </div>
             </div>
-            <div style={{ fontSize: "10px", color: "#444", letterSpacing: "1px", border: "1px solid #2a2a3e", borderRadius: "4px", padding: "4px 10px" }}>
-              PDF / TXT
-            </div>
+            <div style={{ fontSize: "11px", color: "#bbb", border: "1px solid #eee", borderRadius: "4px", padding: "4px 10px" }}>PDF / TXT</div>
           </div>
           <input ref={fileInputRef} type="file" accept=".pdf,.txt" style={{ display: "none" }} onChange={e => handleResumeFile(e.target.files[0])} />
         </div>
 
-        {/* ── Job Description ── */}
+        {/* Job Description */}
         <div style={{ marginBottom: "20px" }}>
           <label style={s.label}>Paste Job Description</label>
           <textarea
@@ -448,7 +445,7 @@ export default function JobAgent() {
             disabled={running}
             placeholder="Paste the full job posting here — title, company, responsibilities, requirements..."
             rows={8}
-            style={{ width: "100%", background: "#0c0c18", border: "1px solid #1a1a2a", borderRadius: "8px", padding: "16px", color: "#e8e4d9", fontFamily: "'DM Mono',monospace", fontSize: "13px", lineHeight: "1.6", resize: "vertical", transition: "border-color 0.2s" }}
+            style={{ width: "100%", background: "#fff", border: "1.5px solid #e5e2db", borderRadius: "8px", padding: "16px", color: "#1a1a2e", fontFamily: "inherit", fontSize: "14px", lineHeight: "1.6", resize: "vertical", transition: "border-color 0.2s" }}
           />
         </div>
 
@@ -456,12 +453,12 @@ export default function JobAgent() {
           className="run-btn"
           onClick={runAgent}
           disabled={running || !jobText.trim() || resumeLoading}
-          style={{ background: running ? "#12121f" : "linear-gradient(135deg,#f0d080,#e8a840)", color: running ? "#555" : "#080810", border: "none", borderRadius: "8px", padding: "13px 30px", fontSize: "12px", fontFamily: "'DM Mono',monospace", fontWeight: "500", letterSpacing: "1.5px", cursor: running ? "not-allowed" : "pointer", marginBottom: "36px" }}
+          style={{ background: running ? "#eee" : "#1a1a2e", color: running ? "#aaa" : "#fff", border: "none", borderRadius: "8px", padding: "14px 32px", fontSize: "13px", fontWeight: 600, letterSpacing: "0.5px", cursor: running ? "not-allowed" : "pointer", marginBottom: "36px", transition: "all 0.25s" }}
         >
           {running ? `Running agent${dots}` : "▶  Run Agent"}
         </button>
 
-        {/* ── Progress ── */}
+        {/* Progress */}
         {(running || results) && (
           <div style={{ ...s.card, marginBottom: "32px" }}>
             <div style={s.label}>Agent Progress</div>
@@ -469,109 +466,129 @@ export default function JobAgent() {
               const done = completedSteps.includes(step.id);
               const active = currentStep === i && running;
               return (
-                <div key={step.id} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "9px 0", borderBottom: i < STEPS.length - 1 ? "1px solid #111120" : "none", opacity: (!done && !active && running) ? 0.25 : 1, transition: "opacity 0.3s" }}>
-                  <span style={{ fontSize: "16px", width: "22px", textAlign: "center" }}>{done ? "✅" : step.icon}</span>
-                  <span style={{ fontSize: "12px", color: done ? "#5adb8a" : active ? "#f0d080" : "#555", fontWeight: active ? "500" : "300" }}>
-                    {step.label}{active && <span className="pulse" style={{ color: "#f0d080" }}>{dots}</span>}
+                <div key={step.id} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "9px 0", borderBottom: i < STEPS.length - 1 ? "1px solid #f0ede8" : "none", opacity: (!done && !active && running) ? 0.25 : 1, transition: "opacity 0.3s" }}>
+                  <span style={{ fontSize: "16px", width: "24px", textAlign: "center" }}>{done ? "✅" : step.icon}</span>
+                  <span style={{ fontSize: "13px", color: done ? "#16a34a" : active ? "#d97706" : "#aaa", fontWeight: active ? 600 : 400 }}>
+                    {step.label}{active && <span className="pulse">{dots}</span>}
                   </span>
-                  {done && <span style={{ marginLeft: "auto", fontSize: "9px", color: "#2a2a4a", letterSpacing: "1px" }}>DONE</span>}
+                  {done && <span style={{ marginLeft: "auto", fontSize: "10px", color: "#16a34a", letterSpacing: "1px" }}>DONE</span>}
                 </div>
               );
             })}
           </div>
         )}
 
-        {error && <div style={{ background: "#180f0f", border: "1px solid #4a1f1f", borderRadius: "8px", padding: "14px", color: "#ff8080", fontSize: "12px", marginBottom: "20px" }}>⚠ {error}</div>}
+        {error && <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "8px", padding: "14px", color: "#dc2626", fontSize: "13px", marginBottom: "20px" }}>⚠ {error}</div>}
 
-        {/* ── Results ── */}
+        {/* Results */}
         {results && (
           <div className="fade-in">
-            <div style={s.label}>Analysis complete</div>
-            <h2 style={{ fontFamily: "'Playfair Display',serif", fontSize: "22px", color: "#f0d080", margin: "0 0 24px", fontWeight: 700 }}>{results.title}</h2>
+            <h2 style={{ fontFamily: "'Playfair Display',serif", fontSize: "24px", color: "#1a1a2e", margin: "0 0 20px", fontWeight: 700 }}>{results.title}</h2>
 
+            {/* Match / Gap */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", marginBottom: "28px" }}>
-              <div style={{ background: "#091409", border: "1px solid #162616", borderRadius: "8px", padding: "18px" }}>
-                <div style={{ fontSize: "10px", letterSpacing: "2px", color: "#5adb8a", marginBottom: "12px", textTransform: "uppercase" }}>✓ Strong Matches</div>
-                {results.matches.map((m, i) => <div key={i} style={{ fontSize: "12px", color: "#90c898", marginBottom: "6px", lineHeight: "1.5" }}>· {m}</div>)}
+              <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px", padding: "18px" }}>
+                <div style={{ fontSize: "11px", letterSpacing: "2px", color: "#16a34a", marginBottom: "12px", textTransform: "uppercase", fontWeight: 600 }}>✓ Strong Matches</div>
+                {results.matches.map((m, i) => <div key={i} style={{ fontSize: "13px", color: "#166534", marginBottom: "6px", lineHeight: "1.5" }}>· {m}</div>)}
               </div>
-              <div style={{ background: "#180f09", border: "1px solid #2e1a0e", borderRadius: "8px", padding: "18px" }}>
-                <div style={{ fontSize: "10px", letterSpacing: "2px", color: "#e89060", marginBottom: "12px", textTransform: "uppercase" }}>⚠ Skill Gaps</div>
-                {results.gaps.map((g, i) => <div key={i} style={{ fontSize: "12px", color: "#b87850", marginBottom: "6px", lineHeight: "1.5" }}>· {g}</div>)}
+              <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: "8px", padding: "18px" }}>
+                <div style={{ fontSize: "11px", letterSpacing: "2px", color: "#d97706", marginBottom: "12px", textTransform: "uppercase", fontWeight: 600 }}>⚠ Skill Gaps</div>
+                {results.gaps.map((g, i) => <div key={i} style={{ fontSize: "13px", color: "#92400e", marginBottom: "6px", lineHeight: "1.5" }}>· {g}</div>)}
               </div>
             </div>
 
+            {/* Tabs */}
             <div style={s.tabBar}>
               {TABS.map(tab => <button key={tab.id} style={s.tabBtn(activeTab === tab.id)} onClick={() => setActiveTab(tab.id)}>{tab.label}</button>)}
             </div>
 
+            {/* Cover Letter */}
             {activeTab === "cover" && (
               <div className="fade-in" style={s.card}>
                 <div style={s.label}>Tailored Cover Letter</div>
-                <p style={{ fontSize: "13px", lineHeight: "1.9", color: "#c8c4b8", whiteSpace: "pre-wrap", margin: 0 }}>{results.coverLetter}</p>
-                <button style={s.copyBtn} onClick={() => copyToClipboard(results.coverLetter, "Cover letter copied!")}>{copiedMsg === "Cover letter copied!" ? "✓ Copied!" : "Copy to clipboard"}</button>
+                <div style={{ fontSize: "14px", lineHeight: "1.9", color: "#333" }}>
+                  <p style={{ margin: "0 0 16px", color: "#666" }}>{results.formattedDate}</p>
+                  <p style={{ margin: "0 0 16px" }}>Dear Hiring Manager,</p>
+                  <RenderMarkdown text={results.coverBody} style={{ fontSize: "14px", lineHeight: "1.9", color: "#333", whiteSpace: "pre-wrap", marginBottom: "16px" }} />
+                  <p style={{ margin: "16px 0 4px" }}>Sincerely,</p>
+                  <p style={{ margin: 0, fontWeight: 600 }}>{results.candidateName}</p>
+                </div>
+                <button style={s.copyBtn} onClick={() => copyToClipboard(getFullCoverLetter(results), "Copied!")}>
+                  {copiedMsg === "Copied!" ? "✓ Copied!" : "Copy full cover letter"}
+                </button>
               </div>
             )}
 
+            {/* Resume Rewrite */}
             {activeTab === "rewrite" && (
               <div className="fade-in" style={s.card}>
                 <div style={s.label}>Resume — Rewritten for This Role</div>
-                <div style={{ fontSize: "11px", color: "#555", marginBottom: "16px", padding: "10px 14px", background: "#0a0a14", borderRadius: "6px", border: "1px solid #1a1a2a", lineHeight: "1.5" }}>
-                  💡 These rewrites optimize your bullets with keywords from this job. Replace the relevant sections in your actual resume before applying.
+                <div style={{ fontSize: "12px", color: "#aaa", marginBottom: "16px", padding: "10px 14px", background: "#f8f7f4", borderRadius: "6px", border: "1px solid #eee", lineHeight: "1.5" }}>
+                  💡 These rewrites optimize your bullets with keywords from this job. Replace relevant sections in your resume before applying.
                 </div>
-                <p style={{ fontSize: "13px", lineHeight: "1.9", color: "#c8c4b8", whiteSpace: "pre-wrap", margin: 0 }}>{results.resumeRewrite}</p>
-                <button style={s.copyBtn} onClick={() => copyToClipboard(results.resumeRewrite, "Resume rewrite copied!")}>{copiedMsg === "Resume rewrite copied!" ? "✓ Copied!" : "Copy to clipboard"}</button>
+                <RenderMarkdown text={results.resumeRewrite} style={{ fontSize: "14px", lineHeight: "1.9", color: "#333", whiteSpace: "pre-wrap" }} />
+                <button style={s.copyBtn} onClick={() => copyToClipboard(results.resumeRewrite, "Rewrite copied!")}>
+                  {copiedMsg === "Rewrite copied!" ? "✓ Copied!" : "Copy to clipboard"}
+                </button>
               </div>
             )}
 
+            {/* Networking */}
             {activeTab === "network" && (
               <div className="fade-in">
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", marginBottom: "20px" }}>
                   {(results.networkTargets || []).map((person, i) => (
-                    <div key={i} className={`network-card${selectedNetworkIdx === i ? " selected" : ""}`} onClick={() => setSelectedNetworkIdx(i)} style={{ background: "#0c0c18", border: "1px solid #1a1a2a", borderRadius: "8px", padding: "16px" }}>
-                      <div style={{ fontSize: "13px", color: "#f0d080", marginBottom: "6px", fontWeight: "500" }}>{person.title}</div>
-                      <div style={{ fontSize: "11px", color: "#666", lineHeight: "1.5" }}>{person.reason}</div>
-                      {selectedNetworkIdx === i && <div style={{ fontSize: "9px", color: "#f0d080", marginTop: "8px", letterSpacing: "1px" }}>SELECTED ▼</div>}
+                    <div key={i} className={`network-card${selectedNetworkIdx === i ? " selected" : ""}`} onClick={() => setSelectedNetworkIdx(i)} style={{ background: "#fff", border: "1.5px solid #e5e2db", borderRadius: "8px", padding: "16px" }}>
+                      <div style={{ fontSize: "13px", color: "#1a1a2e", marginBottom: "6px", fontWeight: 600 }}>{person.title}</div>
+                      <div style={{ fontSize: "12px", color: "#888", lineHeight: "1.5" }}>{person.reason}</div>
+                      {selectedNetworkIdx === i && <div style={{ fontSize: "10px", color: "#1a1a2e", marginTop: "8px", letterSpacing: "1px", fontWeight: 600 }}>SELECTED ▼</div>}
                     </div>
                   ))}
                 </div>
                 {results.networkTargets?.[selectedNetworkIdx] && (
                   <div style={s.card}>
                     <div style={s.label}>LinkedIn Message → {results.networkTargets[selectedNetworkIdx].title}</div>
-                    <div style={{ fontSize: "13px", lineHeight: "1.8", color: "#c8c4b8", background: "#0a0a14", borderRadius: "6px", padding: "16px", border: "1px solid #1a1a2a" }}>
+                    <div style={{ fontSize: "14px", lineHeight: "1.8", color: "#333", background: "#f8f7f4", borderRadius: "6px", padding: "16px", border: "1px solid #eee" }}>
                       {results.networkTargets[selectedNetworkIdx].message}
                     </div>
                     <div style={{ display: "flex", gap: "10px", alignItems: "center", marginTop: "14px" }}>
-                      <button style={s.copyBtn} onClick={() => copyToClipboard(results.networkTargets[selectedNetworkIdx].message, "Message copied!")}>{copiedMsg === "Message copied!" ? "✓ Copied!" : "Copy message"}</button>
-                      <span style={{ fontSize: "10px", color: "#3a3a4a" }}>Search LinkedIn for "{results.networkTargets[selectedNetworkIdx].title}" + company name</span>
+                      <button style={s.copyBtn} onClick={() => copyToClipboard(results.networkTargets[selectedNetworkIdx].message, "Message copied!")}>
+                        {copiedMsg === "Message copied!" ? "✓ Copied!" : "Copy message"}
+                      </button>
+                      <span style={{ fontSize: "11px", color: "#bbb" }}>Search LinkedIn for "{results.networkTargets[selectedNetworkIdx].title}" + company name</span>
                     </div>
                   </div>
                 )}
               </div>
             )}
 
+            {/* Action Plan */}
             {activeTab === "gaps" && (
               <div className="fade-in" style={s.card}>
                 <div style={s.label}>How to Close Your Skill Gaps</div>
-                <p style={{ fontSize: "13px", lineHeight: "1.9", color: "#c8c4b8", whiteSpace: "pre-wrap", margin: 0 }}>{results.gapAdvice}</p>
+                <RenderMarkdown text={results.gapAdvice} style={{ fontSize: "14px", lineHeight: "1.9", color: "#333", whiteSpace: "pre-wrap" }} />
               </div>
             )}
 
+            {/* Requirements */}
             {activeTab === "requirements" && (
               <div className="fade-in" style={s.card}>
                 <div style={s.label}>All Requirements Extracted</div>
                 {results.requirements.map((r, i) => (
-                  <div key={i} style={{ display: "flex", gap: "14px", alignItems: "flex-start", padding: "10px 0", borderBottom: i < results.requirements.length - 1 ? "1px solid #101018" : "none" }}>
-                    <span style={{ color: "#f0d080", fontSize: "10px", marginTop: "3px", minWidth: "20px" }}>{String(i + 1).padStart(2, "0")}</span>
-                    <span style={{ fontSize: "13px", color: "#c8c4b8", lineHeight: "1.5" }}>{r}</span>
+                  <div key={i} style={{ display: "flex", gap: "14px", alignItems: "flex-start", padding: "10px 0", borderBottom: i < results.requirements.length - 1 ? "1px solid #f0ede8" : "none" }}>
+                    <span style={{ color: "#1a1a2e", fontSize: "11px", marginTop: "3px", minWidth: "20px", fontWeight: 600 }}>{String(i + 1).padStart(2, "0")}</span>
+                    <span style={{ fontSize: "14px", color: "#333", lineHeight: "1.5" }}>{r}</span>
                   </div>
                 ))}
               </div>
             )}
 
-            <div style={{ marginTop: "24px", display: "flex", alignItems: "center", gap: "10px", fontSize: "11px", color: "#444" }}>
-              <span style={{ color: "#5adb8a" }}>●</span>
+            <div style={{ marginTop: "24px", display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: "#bbb" }}>
+              <span style={{ color: "#16a34a" }}>●</span>
               Saved to tracker —
-              <button onClick={() => setView("tracker")} style={{ background: "none", border: "none", color: "#8080aa", fontFamily: "'DM Mono',monospace", fontSize: "11px", cursor: "pointer", padding: 0, textDecoration: "underline" }}>view all applications</button>
+              <button onClick={() => setView("tracker")} style={{ background: "none", border: "none", color: "#888", fontFamily: "inherit", fontSize: "12px", cursor: "pointer", padding: 0, textDecoration: "underline" }}>
+                view all applications
+              </button>
             </div>
           </div>
         )}
