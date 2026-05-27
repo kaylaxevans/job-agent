@@ -555,7 +555,7 @@ export default function JobAgent() {
                       <button style={s.copyBtn} onClick={() => copyToClipboard(results.networkTargets[selectedNetworkIdx].message, "Message copied!")}>
                         {copiedMsg === "Message copied!" ? "✓ Copied!" : "Copy message"}
                       </button>
-                      <span style={{ fontSize: "11px", color: "#bbb" }}>Search LinkedIn for "{results.networkTargets[selectedNetworkIdx].title}" + company name</span>
+                      <a href={`https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(results.networkTargets[selectedNetworkIdx].title + " " + results.title.split(" at ").slice(1).join(" at "))}&origin=GLOBAL_SEARCH_HEADER`} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "#0077b5", color: "#fff", borderRadius: "6px", padding: "7px 14px", fontSize: "11px", fontFamily: "inherit", textDecoration: "none", letterSpacing: "0.5px", fontWeight: 600 }}>🔍 Search on LinkedIn</a>
                     </div>
                   </div>
                 )}
