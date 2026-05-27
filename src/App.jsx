@@ -48,6 +48,7 @@ const STEPS = [
   { id: "rewrite", label: "Rewriting resume bullets",    icon: "🔄" },
   { id: "network", label: "Finding networking targets",  icon: "🤝" },
   { id: "gaps",    label: "Building your action plan",   icon: "🎯" },
+  { id: "interview", label: "Generating interview questions", icon: "🎤" },
 ];
 
 const TABS = [
@@ -55,6 +56,7 @@ const TABS = [
   { id: "rewrite",      label: "Resume Rewrite" },
   { id: "network",      label: "Networking" },
   { id: "gaps",         label: "Action Plan" },
+  { id: "interview",    label: "Interview Prep" },
   { id: "requirements", label: "Requirements" },
 ];
 
@@ -101,6 +103,7 @@ export default function JobAgent() {
   const [resumeText, setResumeText]                 = useState(DEFAULT_RESUME);
   const [resumeName, setResumeName]                 = useState("Kayla C. Evans (default)");
   const [resumeLoading, setResumeLoading]           = useState(false);
+  const [interviewQuestions, setInterviewQuestions]   = useState([]);
   const [dragOver, setDragOver]                     = useState(false);
   const fileInputRef                                = useRef(null);
 
@@ -274,6 +277,7 @@ export default function JobAgent() {
         resumeRewrite,
         networkTargets,
         gapAdvice,
+        interviewQuestions: interviewQs,
         date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
         formattedDate: getFormattedDate(),
         status: "Not Applied",
@@ -506,10 +510,10 @@ export default function JobAgent() {
             {activeTab === "cover" && (
               <div className="fade-in" style={s.card}>
                 <div style={s.label}>Tailored Cover Letter</div>
-                <div style={{ fontSize: "14px", lineHeight: "1.9", color: "#333" }}>
+                <div style={{ fontSize: "14px", lineHeight: "1.9", color: "#333", textAlign: "left" }}>
                   <p style={{ margin: "0 0 16px", color: "#666" }}>{results.formattedDate}</p>
                   <p style={{ margin: "0 0 16px" }}>Dear Hiring Manager,</p>
-                  <RenderMarkdown text={results.coverBody} style={{ fontSize: "14px", lineHeight: "1.9", color: "#333", whiteSpace: "pre-wrap", marginBottom: "16px" }} />
+                  <RenderMarkdown text={results.coverBody} style={{ fontSize: "14px", lineHeight: "1.9", color: "#333", whiteSpace: "pre-wrap", marginBottom: "16px", textAlign: "left" }} />
                   <p style={{ margin: "16px 0 4px" }}>Sincerely,</p>
                   <p style={{ margin: 0, fontWeight: 600 }}>{results.candidateName}</p>
                 </div>
@@ -526,7 +530,7 @@ export default function JobAgent() {
                 <div style={{ fontSize: "12px", color: "#aaa", marginBottom: "16px", padding: "10px 14px", background: "#f8f7f4", borderRadius: "6px", border: "1px solid #eee", lineHeight: "1.5" }}>
                   💡 These rewrites optimize your bullets with keywords from this job. Replace relevant sections in your resume before applying.
                 </div>
-                <RenderMarkdown text={results.resumeRewrite} style={{ fontSize: "14px", lineHeight: "1.9", color: "#333", whiteSpace: "pre-wrap" }} />
+                <RenderMarkdown text={results.resumeRewrite} style={{ fontSize: "14px", lineHeight: "1.9", color: "#333", whiteSpace: "pre-wrap", textAlign: "left" }} />
                 <button style={s.copyBtn} onClick={() => copyToClipboard(results.resumeRewrite, "Rewrite copied!")}>
                   {copiedMsg === "Rewrite copied!" ? "✓ Copied!" : "Copy to clipboard"}
                 </button>
@@ -567,6 +571,32 @@ export default function JobAgent() {
               <div className="fade-in" style={s.card}>
                 <div style={s.label}>How to Close Your Skill Gaps</div>
                 <RenderMarkdown text={results.gapAdvice} style={{ fontSize: "14px", lineHeight: "1.9", color: "#333", whiteSpace: "pre-wrap" }} />
+              </div>
+            )}
+
+
+            {/* Interview Prep */}
+            {activeTab === "interview" && (
+              <div className="fade-in">
+                {(results.interviewQuestions || []).length === 0 ? (
+                  <div style={{ ...s.card, textAlign: "center", padding: "40px", color: "#aaa", fontSize: "13px" }}>
+                    No interview questions generated yet. Run the agent again to get interview prep!
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                    {(results.interviewQuestions || []).map((q, i) => (
+                      <div key={i} style={{ ...s.card, padding: "20px 24px" }}>
+                        <div style={{ display: "flex", gap: "12px", alignItems: "flex-start", marginBottom: "12px" }}>
+                          <span style={{ background: "#1a1a2e", color: "#fff", borderRadius: "50%", width: "24px", height: "24px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", fontWeight: 700, flexShrink: 0, marginTop: "2px" }}>{i + 1}</span>
+                          <div style={{ fontSize: "14px", fontWeight: 600, color: "#1a1a2e", lineHeight: "1.5" }}>{q.question}</div>
+                        </div>
+                        <div style={{ marginLeft: "36px", fontSize: "13px", color: "#555", lineHeight: "1.7", background: "#f8f7f4", borderRadius: "6px", padding: "12px 16px", borderLeft: "3px solid #1a1a2e" }}>
+                          {q.answer}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
