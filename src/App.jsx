@@ -50,6 +50,7 @@ const STEPS = [
   { id: "gaps",    label: "Building your action plan",   icon: "🎯" },
   { id: "interview", label: "Generating interview questions", icon: "🎤" },
   { id: "company",   label: "Researching company",              icon: "🏢" },
+  { id: "similar",   label: "Finding similar roles",             icon: "🔎" },
 ];
 
 const TABS = [
@@ -60,6 +61,7 @@ const TABS = [
   { id: "network",      label: "Networking" },
   { id: "gaps",         label: "Action Plan" },
   { id: "interview",    label: "Interview Prep" },
+  { id: "similar",      label: "Similar Roles" },
 ];
 
 const STATUS_COLORS = {
@@ -434,6 +436,16 @@ export default function JobAgent() {
         if (firstB2 !== -1 && lastB2 !== -1) companyData = JSON.parse(companyRaw.slice(firstB2, lastB2 + 1));
       } catch {}
       setCompletedSteps(s => [...s, "company"]);
+      setCurrentStep(9);
+
+      await new Promise(r => setTimeout(r, 600));
+      const similarRaw = await callClaude(`Based on this job posting, suggest 5 similar job titles the candidate should also search for. Return ONLY a JSON array of short job title strings (2-4 words each). No markdown, start with [.\n\nJob posting:\n${jobText}`);
+      let similarRoles = [];
+      try {
+        const fb = similarRaw.indexOf("["); const lb = similarRaw.lastIndexOf("]");
+        if (fb !== -1 && lb !== -1) similarRoles = JSON.parse(similarRaw.slice(fb, lb + 1));
+      } catch {}
+      setCompletedSteps(s => [...s, "similar"]);
       setCurrentStep(-1);
 
       const titleRaw = await callClaude(`What is the job title and company name from this posting? Reply with ONLY: "Job Title at Company Name", nothing else.\n\n${jobText}`);
@@ -454,6 +466,7 @@ export default function JobAgent() {
         gapAdvice,
         interviewQuestions: interviewQs,
         companyData,
+        similarRoles,
         date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
         formattedDate: getFormattedDate(),
         status: "Not Applied",
@@ -827,6 +840,30 @@ export default function JobAgent() {
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Similar Roles */}
+            {activeTab === "similar" && (
+              <div className="fade-in" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                <div style={s.card}>
+                  <div style={s.label}>Similar Job Titles to Search</div>
+                  <div style={{ fontSize: "12px", color: "#aaa", marginBottom: "16px", padding: "10px 14px", background: "#f8f7f4", borderRadius: "6px", border: "1px solid #eee", lineHeight: "1.5" }}>
+                    Based on this role, here are similar positions worth exploring. Click any job board button to search instantly.
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    {(results.similarRoles || []).map((role, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: "#f8f7f4", borderRadius: "8px", border: "1px solid #e5e2db", flexWrap: "wrap", gap: "10px" }}>
+                        <span style={{ fontSize: "14px", color: "#1a1a2e", fontWeight: 500 }}>{role}</span>
+                        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                          <a href={`https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(role)}`} target="_blank" rel="noopener noreferrer" style={{ background: "#0077b5", color: "#fff", borderRadius: "6px", padding: "5px 12px", fontSize: "11px", textDecoration: "none", fontFamily: "inherit", fontWeight: 600 }}>LinkedIn</a>
+                          <a href={`https://www.indeed.com/jobs?q=${encodeURIComponent(role)}`} target="_blank" rel="noopener noreferrer" style={{ background: "#2164f3", color: "#fff", borderRadius: "6px", padding: "5px 12px", fontSize: "11px", textDecoration: "none", fontFamily: "inherit", fontWeight: 600 }}>Indeed</a>
+                          <a href={`https://joinhandshake.com/jobs/?query=${encodeURIComponent(role)}`} target="_blank" rel="noopener noreferrer" style={{ background: "#e8442c", color: "#fff", borderRadius: "6px", padding: "5px 12px", fontSize: "11px", textDecoration: "none", fontFamily: "inherit", fontWeight: 600 }}>Handshake</a>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
 
