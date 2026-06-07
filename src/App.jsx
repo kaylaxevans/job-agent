@@ -138,6 +138,11 @@ export default function JobAgent() {
       };
       document.head.appendChild(script);
     }
+    if (!window.jspdf) {
+      const script2 = document.createElement("script");
+      script2.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+      document.head.appendChild(script2);
+    }
   }, []);
 
   const extractTextFromPDF = async (file) => {
@@ -201,6 +206,143 @@ export default function JobAgent() {
     navigator.clipboard.writeText(text);
     setCopiedMsg(label);
     setTimeout(() => setCopiedMsg(""), 2000);
+  };
+
+  const downloadResume = (result) => {
+    if (!window.jspdf) { alert("PDF generator still loading, please try again in a moment."); return; }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: "pt", format: "letter" });
+    const margin = 54;
+    const pageWidth = 612;
+    const maxWidth = pageWidth - margin * 2;
+    let y = 54;
+    const lineHeight = 13;
+
+    const addText = (text, x, fontSize, bold, color) => {
+      doc.setFontSize(fontSize);
+      doc.setFont("helvetica", bold ? "bold" : "normal");
+      doc.setTextColor(color || "#1a1a1a");
+      doc.text(text, x, y);
+    };
+
+    const addWrapped = (text, x, fontSize, indent) => {
+      doc.setFontSize(fontSize);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor("#1a1a1a");
+      const lines = doc.splitTextToSize(text, maxWidth - (indent || 0));
+      lines.forEach(line => {
+        doc.text(line, x, y);
+        y += lineHeight;
+      });
+    };
+
+    const addLine = () => {
+      y += 4;
+      doc.setDrawColor("#cccccc");
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 8;
+    };
+
+    // Name
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor("#1a1a1a");
+    const name = result.candidateName || "Your Name";
+    doc.text(name, pageWidth / 2, y, { align: "center" });
+    y += 18;
+
+    // Contact
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor("#555");
+    doc.text("Kayla.c.evans@outlook.com | (760) 908-8347 | San Diego, CA | LinkedIn", pageWidth / 2, y, { align: "center" });
+    y += 20;
+
+    // Parse rewritten bullets and original resume to build the updated resume
+    const bullets = result.resumeRewrite || "";
+    const lines = bullets.split("\n").filter(l => l.trim());
+
+    // Section header helper
+    const addSectionHeader = (title) => {
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor("#1a1a1a");
+      doc.text(title.toUpperCase(), margin, y);
+      y += 4;
+      doc.setDrawColor("#1a1a1a");
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 12;
+    };
+
+    // Education section (unchanged)
+    addSectionHeader("Education");
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("UC San Diego, School of Global Policy and Strategy", margin, y);
+    y += lineHeight;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.5);
+    doc.text("Master of Arts in International Affairs, Specialty in International Management (GPA: 3.5)  |  Graduation: June 2026", margin, y);
+    y += lineHeight;
+    doc.text("Relevant Coursework: International Business, Global Business Strategy, International Economics,", margin, y);
+    y += lineHeight;
+    doc.text("Quantitative Methods I-II, Strategy & Negotiation, Product Marketing & Management", margin + 10, y);
+    y += lineHeight;
+    doc.text("Bachelor of Arts in International Business  |  June 2025", margin, y);
+    y += 20;
+
+    // Experience section from rewritten bullets
+    addSectionHeader("Experience");
+    let currentCompany = "";
+    lines.forEach(line => {
+      const trimmed = line.trim();
+      if (!trimmed) { y += 6; return; }
+      if (trimmed.startsWith("-") || trimmed.startsWith("•")) {
+        doc.setFontSize(9.5);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor("#1a1a1a");
+        const bulletText = trimmed.replace(/^[-•]\s*/, "");
+        const wrapped = doc.splitTextToSize("• " + bulletText, maxWidth - 12);
+        wrapped.forEach((wl, wi) => {
+          doc.text(wl, margin + (wi === 0 ? 0 : 12), y);
+          y += lineHeight;
+        });
+      } else if (trimmed.includes(" - ") && !trimmed.startsWith("•")) {
+        // Job title line
+        y += 4;
+        const parts = trimmed.split(" - ");
+        doc.setFontSize(9.5);
+        doc.setFont("helvetica", "bold");
+        doc.text(parts[0], margin, y);
+        if (parts[1]) {
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor("#555");
+          doc.text(parts[1], pageWidth - margin, y, { align: "right" });
+        }
+        doc.setTextColor("#1a1a1a");
+        y += lineHeight;
+      } else {
+        // Company name
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.text(trimmed, margin, y);
+        y += lineHeight;
+      }
+    });
+
+    y += 10;
+
+    // Skills section (unchanged)
+    addSectionHeader("Skills");
+    doc.setFontSize(9.5);
+    doc.setFont("helvetica", "normal");
+    doc.text("Computer Skills: Microsoft Office (Word, Excel, PowerPoint), G-Suite, Canva, R Studio, WordPress, QGIS, Trello", margin, y);
+    y += lineHeight;
+    doc.text("Certifications: Real Estate Salesperson License, California", margin, y);
+    y += lineHeight;
+    doc.text("Languages: English (Native), Spanish (Intermediate)", margin, y);
+
+    doc.save("Kayla_Evans_Resume_Updated.pdf");
   };
 
   const getFormattedDate = () => {
@@ -578,9 +720,17 @@ export default function JobAgent() {
                     Copy these keyword-optimized bullets directly into your resume for this role.
                   </div>
                   <RenderMarkdown text={results.resumeRewrite} style={{ fontSize: "14px", lineHeight: "1.9", color: "#333", whiteSpace: "pre-wrap", textAlign: "left" }} />
-                  <button style={s.copyBtn} onClick={() => copyToClipboard(results.resumeRewrite, "Rewrite copied!")}>
-                    {copiedMsg === "Rewrite copied!" ? "Copied!" : "Copy to clipboard"}
-                  </button>
+                  <div style={{ display: "flex", gap: "10px", marginTop: "16px", flexWrap: "wrap" }}>
+                    <button style={s.copyBtn} onClick={() => copyToClipboard(results.resumeRewrite, "Rewrite copied!")} >
+                      {copiedMsg === "Rewrite copied!" ? "Copied!" : "Copy to clipboard"}
+                    </button>
+                    <button
+                      onClick={() => downloadResume(results)}
+                      style={{ background: "#1a1a2e", color: "#fff", border: "none", borderRadius: "6px", padding: "7px 16px", fontSize: "11px", fontFamily: "inherit", cursor: "pointer", letterSpacing: "1px", marginTop: "0", display: "flex", alignItems: "center", gap: "6px" }}
+                    >
+                      ⬇ Download Updated Resume PDF
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
