@@ -245,11 +245,13 @@ export default function JobAgent() {
       setCurrentStep(4);
 
       await new Promise(r => setTimeout(r, 600));
-      const resumeRewrite = await callClaude(`You are a professional resume coach. Analyze this resume against the job posting and return a JSON object with two fields:
-1. "suggestions": an array of 5-7 specific improvement suggestions. Each suggestion is an object with "issue" (what is wrong or could be better) and "fix" (exactly how to fix it). Be specific - for example flag abbreviations like "BA" that should be spelled out as "Bachelor of Arts", missing quantification, weak verbs, formatting issues, or missing keywords.
-2. "rewrittenBullets": a plain text string with the 3 most relevant experience sections rewritten with stronger, keyword-optimized bullets using bullet points starting with -.
+      const resumeRewrite = await callClaude(`You are a professional resume coach. Analyze this resume against the job posting.
 
-Return ONLY the JSON object, no markdown, no explanation.
+CRITICAL: Your response must start with { and end with }. No markdown. No backticks. No json label. Just raw JSON.
+
+Return a JSON object with exactly these two fields:
+- "suggestions": array of 5-7 objects, each with "issue" and "fix" strings
+- "rewrittenBullets": a single string with rewritten bullets for the 3 most relevant experience sections
 
 Job posting:
 ${jobText}
@@ -258,12 +260,14 @@ Resume:
 ${RESUME}`);
       let resumeData = { suggestions: [], rewrittenBullets: "" };
       try {
-        const cleanResume = resumeRewrite.replace(/```json|```/g, "").replace(/^[^{]*({)/,"$1").replace(/}[^}]*$/,"}").trim();
+        // Strip everything before first { and after last }
+        const firstBrace = resumeRewrite.indexOf("{");
+        const lastBrace = resumeRewrite.lastIndexOf("}");
+        const cleanResume = resumeRewrite.slice(firstBrace, lastBrace + 1).trim();
         resumeData = JSON.parse(cleanResume);
         if (!resumeData.suggestions) resumeData.suggestions = [];
-        if (!resumeData.rewrittenBullets) resumeData.rewrittenBullets = resumeRewrite;
+        if (!resumeData.rewrittenBullets) resumeData.rewrittenBullets = "";
       } catch {
-        // fallback: try to extract suggestions manually
         resumeData = { suggestions: [], rewrittenBullets: resumeRewrite };
       }
       setCompletedSteps(s => [...s, "rewrite"]);
