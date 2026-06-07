@@ -260,15 +260,16 @@ Resume:
 ${RESUME}`);
       let resumeData = { suggestions: [], rewrittenBullets: "" };
       try {
-        // Strip everything before first { and after last }
         const firstBrace = resumeRewrite.indexOf("{");
         const lastBrace = resumeRewrite.lastIndexOf("}");
-        const cleanResume = resumeRewrite.slice(firstBrace, lastBrace + 1).trim();
-        resumeData = JSON.parse(cleanResume);
+        if (firstBrace !== -1 && lastBrace !== -1) {
+          const cleanResume = resumeRewrite.slice(firstBrace, lastBrace + 1);
+          resumeData = JSON.parse(cleanResume);
+        }
         if (!resumeData.suggestions) resumeData.suggestions = [];
         if (!resumeData.rewrittenBullets) resumeData.rewrittenBullets = "";
       } catch {
-        resumeData = { suggestions: [], rewrittenBullets: resumeRewrite };
+        resumeData = { suggestions: [], rewrittenBullets: "" };
       }
       setCompletedSteps(s => [...s, "rewrite"]);
       setCurrentStep(5);
