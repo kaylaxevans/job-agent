@@ -49,6 +49,8 @@ const STEPS = [
   { id: "network", label: "Finding networking targets",  icon: "🤝" },
   { id: "gaps",    label: "Building your action plan",   icon: "🎯" },
   { id: "interview", label: "Generating interview questions", icon: "🎤" },
+  { id: "ats",       label: "Calculating ATS score",           icon: "📊" },
+  { id: "company",   label: "Researching company",              icon: "🏢" },
 ];
 
 const TABS = [
@@ -57,6 +59,8 @@ const TABS = [
   { id: "network",      label: "Networking" },
   { id: "gaps",         label: "Action Plan" },
   { id: "interview",    label: "Interview Prep" },
+  { id: "ats",          label: "ATS Score" },
+  { id: "company",      label: "Company Research" },
   { id: "requirements", label: "Requirements" },
 ];
 
@@ -220,14 +224,14 @@ export default function JobAgent() {
 
     const addText = (text, x, fontSize, bold, color) => {
       doc.setFontSize(fontSize);
-      doc.setFont("helvetica", bold ? "bold" : "normal");
+      doc.setFont("times", bold ? "bold" : "normal");
       doc.setTextColor(color || "#1a1a1a");
       doc.text(text, x, y);
     };
 
     const addWrapped = (text, x, fontSize, indent) => {
       doc.setFontSize(fontSize);
-      doc.setFont("helvetica", "normal");
+      doc.setFont("times", "normal");
       doc.setTextColor("#1a1a1a");
       const lines = doc.splitTextToSize(text, maxWidth - (indent || 0));
       lines.forEach(line => {
@@ -265,7 +269,7 @@ export default function JobAgent() {
     // Section header helper
     const addSectionHeader = (title) => {
       doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
+      doc.setFont("times", "bold");
       doc.setTextColor("#1a1a1a");
       doc.text(title.toUpperCase(), margin, y);
       y += 4;
@@ -292,7 +296,6 @@ export default function JobAgent() {
     y += 20;
 
     // Experience section from rewritten bullets
-    addSectionHeader("Experience");
     let currentCompany = "";
     lines.forEach(line => {
       const trimmed = line.trim();
@@ -423,6 +426,26 @@ export default function JobAgent() {
       try { interviewQs = JSON.parse(interviewRaw.replace(/```json|```/g, "").trim()); }
       catch { interviewQs = []; }
       setCompletedSteps(s => [...s, "interview"]);
+      setCurrentStep(8);
+
+      await new Promise(r => setTimeout(r, 600));
+      const atsRaw = await callClaude(`You are an ATS (Applicant Tracking System) expert. Score this resume against this job posting from 0-100. Return ONLY a JSON object with: "score" (number), "grade" (A/B/C/D/F), "summary" (1 sentence), "strengths" (array of 3 short strings), "weaknesses" (array of 3 short strings). No markdown, start with {.\n\nJob posting:\n${jobText}\n\nResume:\n${RESUME}`);
+      let atsData = { score: 0, grade: "N/A", summary: "", strengths: [], weaknesses: [] };
+      try {
+        const firstB = atsRaw.indexOf("{"); const lastB = atsRaw.lastIndexOf("}");
+        if (firstB !== -1 && lastB !== -1) atsData = JSON.parse(atsRaw.slice(firstB, lastB + 1));
+      } catch {}
+      setCompletedSteps(s => [...s, "ats"]);
+      setCurrentStep(9);
+
+      await new Promise(r => setTimeout(r, 600));
+      const companyRaw = await callClaude(`Based on this job posting, provide a company research summary. Return ONLY a JSON object with: "name" (company name), "what" (1-2 sentences what they do), "industry" (industry + size if known), "culture" (1-2 sentences on culture/values), "lookingFor" (1-2 sentences on ideal candidate), "tip" (1 practical tip for applying). No markdown, start with {.\n\nJob posting:\n${jobText}`);
+      let companyData = { name: "", what: "", industry: "", culture: "", lookingFor: "", tip: "" };
+      try {
+        const firstB2 = companyRaw.indexOf("{"); const lastB2 = companyRaw.lastIndexOf("}");
+        if (firstB2 !== -1 && lastB2 !== -1) companyData = JSON.parse(companyRaw.slice(firstB2, lastB2 + 1));
+      } catch {}
+      setCompletedSteps(s => [...s, "company"]);
       setCurrentStep(-1);
 
       const titleRaw = await callClaude(`What is the job title and company name from this posting? Reply with ONLY: "Job Title at Company Name", nothing else.\n\n${jobText}`);
@@ -442,6 +465,8 @@ export default function JobAgent() {
         networkTargets,
         gapAdvice,
         interviewQuestions: interviewQs,
+        atsData,
+        companyData,
         date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
         formattedDate: getFormattedDate(),
         status: "Not Applied",
@@ -791,6 +816,65 @@ export default function JobAgent() {
                         <div style={{ marginLeft: "36px", fontSize: "13px", color: "#555", lineHeight: "1.7", background: "#f8f7f4", borderRadius: "6px", padding: "12px 16px", borderLeft: "3px solid #1a1a2e" }}>
                           {q.answer}
                         </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ATS Score */}
+            {activeTab === "ats" && (
+              <div className="fade-in">
+                {!results.atsData ? (
+                  <div style={{ ...s.card, textAlign: "center", padding: "40px", color: "#aaa", fontSize: "13px" }}>Run the agent to get your ATS score.</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                    <div style={{ ...s.card, textAlign: "center", padding: "32px" }}>
+                      <div style={{ fontSize: "72px", fontWeight: 900, fontFamily: "'Playfair Display',serif", color: results.atsData.score >= 75 ? "#16a34a" : results.atsData.score >= 50 ? "#d97706" : "#dc2626", lineHeight: 1 }}>
+                        {results.atsData.score}
+                      </div>
+                      <div style={{ fontSize: "14px", color: "#888", marginTop: "4px" }}>out of 100</div>
+                      <div style={{ display: "inline-block", marginTop: "12px", padding: "4px 16px", borderRadius: "20px", fontSize: "13px", fontWeight: 600, background: results.atsData.score >= 75 ? "#f0fdf4" : results.atsData.score >= 50 ? "#fffbeb" : "#fef2f2", color: results.atsData.score >= 75 ? "#16a34a" : results.atsData.score >= 50 ? "#d97706" : "#dc2626", border: `1px solid ${results.atsData.score >= 75 ? "#bbf7d0" : results.atsData.score >= 50 ? "#fde68a" : "#fecaca"}` }}>
+                        Grade: {results.atsData.grade}
+                      </div>
+                      <div style={{ fontSize: "13px", color: "#555", marginTop: "14px", lineHeight: "1.6" }}>{results.atsData.summary}</div>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
+                      <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px", padding: "18px" }}>
+                        <div style={{ fontSize: "11px", letterSpacing: "2px", color: "#16a34a", marginBottom: "12px", textTransform: "uppercase", fontWeight: 600 }}>✓ Strengths</div>
+                        {(results.atsData.strengths || []).map((s_item, i) => <div key={i} style={{ fontSize: "13px", color: "#166534", marginBottom: "6px", lineHeight: "1.5" }}>· {s_item}</div>)}
+                      </div>
+                      <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "8px", padding: "18px" }}>
+                        <div style={{ fontSize: "11px", letterSpacing: "2px", color: "#dc2626", marginBottom: "12px", textTransform: "uppercase", fontWeight: 600 }}>✗ Weaknesses</div>
+                        {(results.atsData.weaknesses || []).map((w, i) => <div key={i} style={{ fontSize: "13px", color: "#991b1b", marginBottom: "6px", lineHeight: "1.5" }}>· {w}</div>)}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Company Research */}
+            {activeTab === "company" && (
+              <div className="fade-in">
+                {!results.companyData ? (
+                  <div style={{ ...s.card, textAlign: "center", padding: "40px", color: "#aaa", fontSize: "13px" }}>Run the agent to get company research.</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                    <div style={{ ...s.card, background: "#1a1a2e", border: "none" }}>
+                      <div style={{ fontSize: "20px", fontFamily: "'Playfair Display',serif", color: "#fff", fontWeight: 700, marginBottom: "6px" }}>{results.companyData.name}</div>
+                      <div style={{ fontSize: "13px", color: "#aaa" }}>{results.companyData.industry}</div>
+                    </div>
+                    {[
+                      { label: "What They Do", value: results.companyData.what, icon: "🏢" },
+                      { label: "Culture & Values", value: results.companyData.culture, icon: "💡" },
+                      { label: "What They Look For", value: results.companyData.lookingFor, icon: "🎯" },
+                      { label: "Application Tip", value: results.companyData.tip, icon: "⭐" },
+                    ].map((item, i) => (
+                      <div key={i} style={s.card}>
+                        <div style={{ fontSize: "11px", letterSpacing: "2px", color: "#aaa", marginBottom: "8px", textTransform: "uppercase", fontWeight: 600 }}>{item.icon} {item.label}</div>
+                        <div style={{ fontSize: "14px", color: "#333", lineHeight: "1.7" }}>{item.value}</div>
                       </div>
                     ))}
                   </div>
