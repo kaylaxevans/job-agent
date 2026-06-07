@@ -45,7 +45,7 @@ const STEPS = [
   { id: "analyze", label: "Analyzing requirements",      icon: "🔍" },
   { id: "compare", label: "Comparing to your resume",    icon: "⚖️" },
   { id: "cover",   label: "Writing cover letter",        icon: "✍️" },
-  { id: "rewrite", label: "Rewriting resume bullets",    icon: "🔄" },
+  { id: "rewrite", label: "Analyzing resume improvements", icon: "🔄" },
   { id: "network", label: "Finding networking targets",  icon: "🤝" },
   { id: "gaps",    label: "Building your action plan",   icon: "🎯" },
   { id: "interview", label: "Generating interview questions", icon: "🎤" },
@@ -53,7 +53,7 @@ const STEPS = [
 
 const TABS = [
   { id: "cover",        label: "Cover Letter" },
-  { id: "rewrite",      label: "Resume Rewrite" },
+  { id: "rewrite",      label: "Resume Tips" },
   { id: "network",      label: "Networking" },
   { id: "gaps",         label: "Action Plan" },
   { id: "interview",    label: "Interview Prep" },
@@ -245,7 +245,24 @@ export default function JobAgent() {
       setCurrentStep(4);
 
       await new Promise(r => setTimeout(r, 600));
-      const resumeRewrite = await callClaude(`Rewrite the candidate's resume bullet points to better match this job posting. Make bullets stronger, more quantified where possible, and keyword-optimized. Return as plain text with section headers and bullet points using -. Keep to the most relevant 3 experience sections.\n\nJob posting:\n${jobText}\n\nOriginal resume:\n${RESUME}`);
+      const resumeRewrite = await callClaude(`You are a professional resume coach. Analyze this resume against the job posting and return a JSON object with two fields:
+1. "suggestions": an array of 5-7 specific improvement suggestions. Each suggestion is an object with "issue" (what is wrong or could be better) and "fix" (exactly how to fix it). Be specific - for example flag abbreviations like "BA" that should be spelled out as "Bachelor of Arts", missing quantification, weak verbs, formatting issues, or missing keywords.
+2. "rewrittenBullets": a plain text string with the 3 most relevant experience sections rewritten with stronger, keyword-optimized bullets using bullet points starting with -.
+
+Return ONLY the JSON object, no markdown, no explanation.
+
+Job posting:
+${jobText}
+
+Resume:
+${RESUME}`);
+      let resumeData = { suggestions: [], rewrittenBullets: "" };
+      try {
+        const cleanResume = resumeRewrite.replace(/```json|```/g, "").trim();
+        resumeData = JSON.parse(cleanResume);
+      } catch {
+        resumeData = { suggestions: [], rewrittenBullets: resumeRewrite };
+      }
       setCompletedSteps(s => [...s, "rewrite"]);
       setCurrentStep(5);
 
@@ -282,7 +299,8 @@ export default function JobAgent() {
         matches: matchData.matches || [],
         gaps: matchData.gaps || [],
         coverBody,
-        resumeRewrite,
+        resumeRewrite: resumeData.rewrittenBullets,
+        resumeSuggestions: resumeData.suggestions || [],
         networkTargets,
         gapAdvice,
         interviewQuestions: interviewQs,
@@ -531,17 +549,43 @@ export default function JobAgent() {
               </div>
             )}
 
-            {/* Resume Rewrite */}
+            {/* Resume Tips */}
             {activeTab === "rewrite" && (
-              <div className="fade-in" style={s.card}>
-                <div style={s.label}>Resume — Rewritten for This Role</div>
-                <div style={{ fontSize: "12px", color: "#aaa", marginBottom: "16px", padding: "10px 14px", background: "#f8f7f4", borderRadius: "6px", border: "1px solid #eee", lineHeight: "1.5" }}>
-                  💡 These rewrites optimize your bullets with keywords from this job. Replace relevant sections in your resume before applying.
+              <div className="fade-in" style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                <div style={s.card}>
+                  <div style={s.label}>Suggested Edits</div>
+                  <div style={{ fontSize: "12px", color: "#aaa", marginBottom: "16px", padding: "10px 14px", background: "#f8f7f4", borderRadius: "6px", border: "1px solid #eee", lineHeight: "1.5" }}>
+                    These are specific changes to make to your resume before applying to this role.
+                  </div>
+                  {(results.resumeSuggestions || []).length === 0 ? (
+                    <div style={{ color: "#aaa", fontSize: "13px" }}>No suggestions generated. Try running the agent again.</div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                      {(results.resumeSuggestions || []).map((item, i) => (
+                        <div key={i} style={{ borderRadius: "8px", border: "1px solid #e5e2db", overflow: "hidden" }}>
+                          <div style={{ background: "#fff7ed", padding: "10px 14px", borderBottom: "1px solid #fed7aa", display: "flex", gap: "8px", alignItems: "flex-start" }}>
+                            <span style={{ color: "#d97706", fontSize: "13px", marginTop: "1px" }}>Issue</span>
+                            <span style={{ fontSize: "13px", color: "#92400e", fontWeight: 500, lineHeight: "1.5", marginLeft: "6px" }}>{item.issue}</span>
+                          </div>
+                          <div style={{ background: "#f0fdf4", padding: "10px 14px", display: "flex", gap: "8px", alignItems: "flex-start" }}>
+                            <span style={{ color: "#16a34a", fontSize: "13px", marginTop: "1px" }}>Fix</span>
+                            <span style={{ fontSize: "13px", color: "#166534", lineHeight: "1.5", marginLeft: "6px" }}>{item.fix}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <RenderMarkdown text={results.resumeRewrite} style={{ fontSize: "14px", lineHeight: "1.9", color: "#333", whiteSpace: "pre-wrap", textAlign: "left" }} />
-                <button style={s.copyBtn} onClick={() => copyToClipboard(results.resumeRewrite, "Rewrite copied!")}>
-                  {copiedMsg === "Rewrite copied!" ? "✓ Copied!" : "Copy to clipboard"}
-                </button>
+                <div style={s.card}>
+                  <div style={s.label}>Rewritten Bullets</div>
+                  <div style={{ fontSize: "12px", color: "#aaa", marginBottom: "16px", padding: "10px 14px", background: "#f8f7f4", borderRadius: "6px", border: "1px solid #eee", lineHeight: "1.5" }}>
+                    Copy these keyword-optimized bullets directly into your resume for this role.
+                  </div>
+                  <RenderMarkdown text={results.resumeRewrite} style={{ fontSize: "14px", lineHeight: "1.9", color: "#333", whiteSpace: "pre-wrap", textAlign: "left" }} />
+                  <button style={s.copyBtn} onClick={() => copyToClipboard(results.resumeRewrite, "Rewrite copied!")}>
+                    {copiedMsg === "Rewrite copied!" ? "Copied!" : "Copy to clipboard"}
+                  </button>
+                </div>
               </div>
             )}
 
