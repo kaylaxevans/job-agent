@@ -258,9 +258,12 @@ Resume:
 ${RESUME}`);
       let resumeData = { suggestions: [], rewrittenBullets: "" };
       try {
-        const cleanResume = resumeRewrite.replace(/```json|```/g, "").trim();
+        const cleanResume = resumeRewrite.replace(/```json|```/g, "").replace(/^[^{]*({)/,"$1").replace(/}[^}]*$/,"}").trim();
         resumeData = JSON.parse(cleanResume);
+        if (!resumeData.suggestions) resumeData.suggestions = [];
+        if (!resumeData.rewrittenBullets) resumeData.rewrittenBullets = resumeRewrite;
       } catch {
+        // fallback: try to extract suggestions manually
         resumeData = { suggestions: [], rewrittenBullets: resumeRewrite };
       }
       setCompletedSteps(s => [...s, "rewrite"]);
