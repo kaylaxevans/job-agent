@@ -864,9 +864,7 @@ export default function JobAgent() {
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="white"><path d="M12 0C5.374 0 0 5.374 0 12s5.374 12 12 12 12-5.374 12-12S18.626 0 12 0zm0 4.5a2.25 2.25 0 110 4.5 2.25 2.25 0 010-4.5zM12 11.25a.75.75 0 01.75.75v6a.75.75 0 01-1.5 0V12a.75.75 0 01.75-.75z"/></svg>
                             Indeed
                           </a>
-                          <a href={`https://joinhandshake.com/jobs/?query=${encodeURIComponent(role)}&job_type=entry_level`} target="_blank" rel="noopener noreferrer" style={{ background: "#e8442c", color: "#fff", borderRadius: "6px", padding: "6px 14px", fontSize: "11px", textDecoration: "none", fontFamily: "inherit", fontWeight: 600, display: "flex", alignItems: "center", gap: "5px" }}>
-                            🤝 Handshake
-                          </a>
+
                         </div>
                       </div>
                     ))}
