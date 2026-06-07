@@ -245,32 +245,20 @@ export default function JobAgent() {
       setCurrentStep(4);
 
       await new Promise(r => setTimeout(r, 600));
-      const resumeRewrite = await callClaude(`You are a professional resume coach. Analyze this resume against the job posting.
-
-CRITICAL: Your response must start with { and end with }. No markdown. No backticks. No json label. Just raw JSON.
-
-Return a JSON object with exactly these two fields:
-- "suggestions": array of 5-7 objects, each with "issue" and "fix" strings
-- "rewrittenBullets": a single string with rewritten bullets for the 3 most relevant experience sections
-
-Job posting:
-${jobText}
-
-Resume:
-${RESUME}`);
-      let resumeData = { suggestions: [], rewrittenBullets: "" };
+      // Two separate calls to avoid JSON parsing issues
+      const suggestionsRaw = await callClaude(`You are a resume coach. Return ONLY a JSON array (no markdown, no backticks, start with [ end with ]) of 5-6 objects. Each object has "issue" and "fix" string fields. Analyze this resume vs job posting and flag: abbreviations to spell out, missing keywords, weak bullets, missing metrics, formatting issues.\n\nJob posting:\n${jobText}\n\nResume:\n${RESUME}`);
+      let suggestions = [];
       try {
-        const firstBrace = resumeRewrite.indexOf("{");
-        const lastBrace = resumeRewrite.lastIndexOf("}");
-        if (firstBrace !== -1 && lastBrace !== -1) {
-          const cleanResume = resumeRewrite.slice(firstBrace, lastBrace + 1);
-          resumeData = JSON.parse(cleanResume);
+        const firstBracket = suggestionsRaw.indexOf("[");
+        const lastBracket = suggestionsRaw.lastIndexOf("]");
+        if (firstBracket !== -1 && lastBracket !== -1) {
+          suggestions = JSON.parse(suggestionsRaw.slice(firstBracket, lastBracket + 1));
         }
-        if (!resumeData.suggestions) resumeData.suggestions = [];
-        if (!resumeData.rewrittenBullets) resumeData.rewrittenBullets = "";
-      } catch {
-        resumeData = { suggestions: [], rewrittenBullets: "" };
-      }
+      } catch { suggestions = []; }
+
+      const rewrittenBullets = await callClaude(`Rewrite the 3 most relevant experience sections from this resume to match the job posting. Use strong action verbs, add metrics where possible, and include keywords from the job posting. Return plain text only, no JSON, no markdown. Use - for bullet points.\n\nJob posting:\n${jobText}\n\nResume:\n${RESUME}`);
+
+      const resumeData = { suggestions, rewrittenBullets };
       setCompletedSteps(s => [...s, "rewrite"]);
       setCurrentStep(5);
 
